@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MONITORZ | Digital Chaos on Robin Hood Chain</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Ethers.js Library untuk membaca data dari Blockchain -->
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js" type="application/javascript"></script>
+
+    <style>
+        :root {
+            --neon-green: #00ff41;
+            --neon-blue: #0ff;
+            --cyber-dark: #0a0a0a;
+            --card-bg: #111111;
+        }
+        body {
+            background-color: var(--cyber-dark);
+            color: var(--neon-green);
+            font-family: 'Rajdhani', sans-serif;
+            overflow-x: hidden;
+            margin: 0;
+            scroll-behavior: smooth;
+        }
+        .font-retro {
+            font-family: 'VT323', monospace;
+        }
+        
+        /* CRT Scanline Effect */
+        .scanlines {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 3px, 3px 100%;
+            z-index: 9999;
+            pointer-events: none;
+        }
+
+        /* Matrix Canvas Background */
+        #matrix-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            pointer-events: none; /* Supaya tidak mengganggu klik tombol */
+        }
+        
+        /* Outline Neon Button */
+        .neon-btn {
+            position: relative;
+            background: transparent;
+            border: 2px solid var(--neon-green);
+            color: var(--neon-green);
+            text-transform: uppercase;
+            text-shadow: 0 0 5px var(--neon-green);
+            box-shadow: 0 0 5px var(--neon-green), inset 0 0 5px var(--neon-green);
+            transition: all 0.3s ease;
+            overflow: hidden;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .neon-btn:hover {
+            background: var(--neon-green);
+            color: var(--cyber-dark);
+            box-shadow: 0 0 20px var(--neon-green), inset 0 0 10px var(--neon-green);
+        }
+
+        /* Solid Primary Button */
+        .neon-btn-solid {
+            position: relative;
+            background: var(--neon-green);
+            border: 2px solid var(--neon-green);
+            color: var(--cyber-dark);
+            text-transform: uppercase;
+            font-weight: bold;
+            box-shadow: 0 0 15px var(--neon-green);
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .neon-btn-solid:hover {
+            background: transparent;
+            color: var(--neon-green);
+            box-shadow: 0 0 20px var(--neon-green), inset 0 0 10px var(--neon-green);
+        }
+        
+        /* Floating Animation */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-12px); }
+            100% { transform: translateY(0px); }
+        }
+        .floating {
+            animation: float 4s ease-in-out infinite;
+        }
+
+        /* Typewriter Cursor */
+        .cursor::after {
+            content: '█';
+            animation: blink 1s step-start infinite;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+        
+        /* Terminal Text Glitch */
+        .glitch-text {
+            position: relative;
+            color: white;
+            display: inline-block;
+        }
+        .glitch-text::before, .glitch-text::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%; background: transparent;
+        }
+        .glitch-text::before { left: 2px; text-shadow: -2px 0 red; clip: rect(24px, 550px, 90px, 0); animation: glitch-anim-1 3s infinite linear alternate-reverse; }
+        .glitch-text::after { left: -2px; text-shadow: -2px 0 blue; clip: rect(85px, 550px, 140px, 0); animation: glitch-anim-2 2.5s infinite linear alternate-reverse; }
+        @keyframes glitch-anim-1 { 0% { clip: rect(10px, 9999px, 44px, 0); } 20% { clip: rect(80px, 9999px, 12px, 0); } 40% { clip: rect(30px, 9999px, 80px, 0); } 60% { clip: rect(90px, 9999px, 15px, 0); } 80% { clip: rect(20px, 9999px, 60px, 0); } 100% { clip: rect(70px, 9999px, 30px, 0); } }
+        @keyframes glitch-anim-2 { 0% { clip: rect(15px, 9999px, 20px, 0); } 20% { clip: rect(40px, 9999px, 90px, 0); } 40% { clip: rect(80px, 9999px, 40px, 0); } 60% { clip: rect(10px, 9999px, 80px, 0); } 80% { clip: rect(60px, 9999px, 10px, 0); } 100% { clip: rect(30px, 9999px, 70px, 0); } }
+
+        /* Monitor Display Box */
+        .terminal-box { border: 2px solid #333; background: rgba(5, 5, 5, 0.85); backdrop-filter: blur(4px); box-shadow: 0 0 20px rgba(0, 255, 65, 0.15); border-radius: 4px; position: relative; }
+        .terminal-box::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: var(--neon-green); opacity: 0.7; box-shadow: 0 0 10px var(--neon-green); }
+        
+        /* Cyber Frame Ornaments */
+        .cyber-corners::before, .cyber-corners::after { content: ''; position: absolute; width: 15px; height: 15px; border-color: var(--neon-green); border-style: solid; }
+        .cyber-corners::before { top: -2px; left: -2px; border-width: 2px 0 0 2px; }
+        .cyber-corners::after { bottom: -2px; right: -2px; border-width: 0 2px 2px 0; }
+
+        /* FAQ Accordion Styles */
+        .faq-item { background-color: rgba(17, 17, 17, 0.9); border: 1px solid #222; border-radius: 8px; margin-bottom: 1rem; overflow: hidden; transition: border-color 0.3s; }
+        .faq-item:hover { border-color: #333; }
+        .faq-btn { width: 100%; text-align: left; padding: 1.5rem; background: none; border: none; color: white; font-size: 1.1rem; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .faq-btn:focus { outline: none; }
+        .faq-icon { transition: transform 0.3s ease; }
+        .faq-btn.active .faq-icon { transform: rotate(180deg); }
+        .faq-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; background-color: transparent; }
+        .faq-text { padding: 0 1.5rem 1.5rem 1.5rem; color: #ccc; font-size: 1rem; line-height: 1.6; }
+        
+        /* Roadmap Timeline */
+        .roadmap-container { border-left: 2px solid var(--neon-green); padding-left: 2rem; margin-left: 1rem; position: relative; }
+        .roadmap-item { position: relative; margin-bottom: 3rem; }
+        .roadmap-item::before { content: ''; position: absolute; left: -2.4rem; top: 0; width: 16px; height: 16px; background-color: var(--cyber-dark); border: 2px solid var(--neon-green); border-radius: 50%; box-shadow: 0 0 10px var(--neon-green); }
+
+        .fade-transition { transition: opacity 0.5s ease-in-out; }
+    </style>
+</head>
+<body class="antialiased relative flex flex-col min-h-screen">
+    
+    <!-- Global CRT Overlay -->
+    <div class="scanlines"></div>
+
+    <!-- Background Matrix Animation -->
+    <canvas id="matrix-canvas"></canvas>
+
+    <!-- Navigation -->
+    <nav class="fixed w-full z-50 border-b border-[#00ff41]/20 bg-black/80 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 md:px-6 py-4 flex justify-between items-center w-full">
+            
+            <!-- Logo & Title -->
+            <div class="flex items-center gap-2 md:gap-4 cursor-pointer z-50">
+                <img src="images/logo.png" alt="Monitorz Logo" class="w-10 h-10 md:w-16 md:h-16 object-contain drop-shadow-[0_0_8px_rgba(0,255,65,0.8)]" onerror="this.src='https://via.placeholder.com/64x64/0a0a0a/00ff41?text=LOGO'">
+                <div class="text-3xl md:text-5xl font-bold font-retro tracking-widest text-white glitch-text" data-text="MONITORZ">
+                    MONITORZ
+                </div>
+            </div>
+
+            <!-- Hamburger Icon (Mobile Only) -->
+            <button id="mobileMenuBtn" class="md:hidden text-[#00ff41] hover:text-white focus:outline-none z-50 p-2">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+            </button>
+
+            <!-- Desktop Menu -->
+            <div class="hidden md:flex items-center space-x-6 font-retro text-xl tracking-widest">
+                <a href="#about" class="text-gray-400 hover:text-[#00ff41] transition drop-shadow-md">ABOUT</a>
+                <a href="#lore" class="text-gray-400 hover:text-[#00ff41] transition drop-shadow-md">LORE</a>
+                <a href="#staking" class="text-gray-400 hover:text-[#00ff41] transition drop-shadow-md">STAKING</a>
+                <a href="#roadmap" class="text-gray-400 hover:text-[#00ff41] transition drop-shadow-md">ROADMAP</a>
+                <a href="#creator" class="text-gray-400 hover:text-[#00ff41] transition drop-shadow-md">CREATOR</a>
+                <span class="text-gray-600">|</span>
+                
+                <!-- Social Icons -->
+                <div class="flex items-center space-x-4">
+                    <a href="https://x.com/MonitorzRh" target="_blank" rel="noopener noreferrer" class="transition transform hover:scale-110">
+                        <svg class="w-6 h-6 fill-white drop-shadow-md" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/></svg>
+                    </a>
+                    <a href="https://opensea.io/collection/monitorz/overview" target="_blank" rel="noopener noreferrer" class="transition transform hover:scale-110">
+                        <img src="images/opensea_logo.png" alt="OpenSea" class="w-7 h-7 object-contain rounded-full shadow-lg">
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Connect Wallet (Desktop) -->
+            <button class="connectWalletBtn hidden md:flex neon-btn px-6 py-2 font-retro text-xl uppercase tracking-wider rounded-sm w-auto whitespace-nowrap bg-black/50">
+                Connect Wallet
+            </button>
+        </div>
+
+        <!-- Mobile Menu Overlay -->
+        <div id="mobileMenu" class="hidden absolute top-full left-0 w-full bg-black/95 border-b border-[#00ff41]/20 flex-col items-center py-6 space-y-6 shadow-2xl backdrop-blur-md">
+            <a href="#about" class="mobile-link text-white font-retro text-2xl tracking-widest hover:text-[#00ff41]">ABOUT</a>
+            <a href="#lore" class="mobile-link text-white font-retro text-2xl tracking-widest hover:text-[#00ff41]">LORE</a>
+            <a href="#staking" class="mobile-link text-white font-retro text-2xl tracking-widest hover:text-[#00ff41]">STAKING</a>
+            <a href="#roadmap" class="mobile-link text-white font-retro text-2xl tracking-widest hover:text-[#00ff41]">ROADMAP</a>
+            <a href="#creator" class="mobile-link text-white font-retro text-2xl tracking-widest hover:text-[#00ff41]">CREATOR</a>
+            
+            <div class="flex items-center space-x-6 pt-4 border-t border-gray-800 w-1/2 justify-center">
+                <a href="https://x.com/MonitorzRh" target="_blank" class="transition transform hover:scale-110">
+                    <svg class="w-8 h-8 fill-white" viewBox="0 0 24 24"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/></svg>
+                </a>
+                <a href="https://opensea.io/collection/monitorz/overview" target="_blank" class="transition transform hover:scale-110">
+                    <img src="images/opensea_logo.png" alt="OpenSea" class="w-8 h-8 object-contain rounded-full">
+                </a>
+            </div>
+            <button class="connectWalletBtn neon-btn px-8 py-3 mt-4 font-retro text-xl uppercase tracking-wider rounded-sm">
+                Connect Wallet
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Hero Section (Minting) -->
+    <section id="about" class="min-h-screen flex items-center justify-center pt-32 pb-12 px-6 relative overflow-hidden">
+                
+        <div class="max-w-6xl mx-auto z-10 w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+            
+            <!-- Left Content: Terminal Screen -->
+            <div class="lg:col-span-7 space-y-8">
+                <h1 class="text-5xl md:text-7xl font-bold font-retro text-white tracking-widest drop-shadow-[0_0_15px_rgba(0,0,0,1)] shadow-black">
+                    THE MINDS ARE <br> WATCHING.
+                </h1>
+                
+                <div class="terminal-box p-6 md:p-8 text-left min-h-[400px] md:min-h-[250px]">
+                    <div id="typewriter" class="text-lg md:text-xl text-[#00ff41] leading-relaxed font-retro tracking-wide">
+                        <!-- Teks akan diketik oleh JavaScript -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Content: NFT Preview Frame & Button -->
+            <div class="lg:col-span-5 flex flex-col items-center relative mt-8 lg:mt-0">
+                <div class="relative group w-full max-w-sm mx-auto floating">
+                    <div class="absolute -inset-1 bg-gradient-to-r from-[#00ff41] to-[#0ff] blur opacity-30 group-hover:opacity-50 transition duration-1000"></div>
+                    
+                    <div class="relative terminal-box p-3 bg-[#050505]/90">
+                        <div class="border border-[#00ff41]/50 p-2 relative cyber-corners">
+                            <div class="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-[#00ff41] -mt-[2px] -mr-[2px]"></div>
+                            <div class="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-[#00ff41] -mb-[2px] -ml-[2px]"></div>
+                            
+                            <div class="relative overflow-hidden bg-black aspect-square flex items-center justify-center">
+                                <img id="nft-preview-img" src="images/MONITORZ_1.png" alt="Monitorz Preview" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition duration-700 fade-transition">
+                                
+                                <div class="absolute bottom-3 left-3 bg-black/80 px-3 py-1 border border-[#00ff41]/50 backdrop-blur-sm">
+                                    <p id="mntrz-id-text" class="font-retro text-[#00ff41] tracking-widest text-sm m-0">ID: MNTRZ-01 // STATUS: LIVE</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mint Button -->
+                <div class="mt-10 flex flex-col items-center w-full max-w-sm mx-auto">
+                    <a href="https://opensea.io/collection/monitorz/overview" target="_blank" rel="noopener noreferrer" class="neon-btn-solid px-8 py-4 font-retro text-2xl tracking-widest w-full text-center">
+                        MINT ON OPENSEA
+                    </a>
+                    <p class="font-retro text-[#00ff41] text-lg mt-3 animate-pulse tracking-widest drop-shadow-[0_0_5px_rgba(0,0,0,1)] bg-black/50 px-2 rounded">
+                        > MINTED: <span id="live-mint-count">LOADING...</span> / 7,777 <
+                    </p>
+                </div>
+            </div>
+            
+        </div>
+    </section>
+
+    <!-- ========================================= -->
+    <!-- NEW SECTION: THE LORE / THE AWAKENING -->
+    <!-- ========================================= -->
+    <section id="lore" class="py-24 px-6 relative z-10 bg-[#050505]/80 backdrop-blur-sm border-t border-[#00ff41]/20">
+        <div class="max-w-4xl mx-auto">
+            <h2 class="text-4xl md:text-5xl font-bold font-retro text-white mb-10 text-center glitch-text" data-text="THE AWAKENING">THE AWAKENING</h2>
+            
+            <div class="terminal-box p-8 md:p-12 text-lg md:text-xl text-gray-300 leading-relaxed font-retro tracking-wider space-y-6">
+                <p>Most collections give you a static image and tell you to wait for the utility. <span class="text-[#00ff41] font-bold">MONITORZ</span> plugs you straight into the mainframe.</p>
+                
+                <p>Born from retro monitors, cyberpunk culture, and neon chaos, 7,777 unique entities have awakened on the Robin Hood Chain. Every single one has its own personality, style, and expression. They were originally built to display information. But somewhere along the way... they became alive.</p>
+                
+                <p>The true power of a Monitor isn’t just in its pixel-perfect design—it’s in what it generates. We aren't making you wait for a convoluted roadmap to see value. Through our native Staking Protocol, your digital beings go straight to work. Lock your MONITORZ in the on-chain vault, and they will immediately begin yielding <span class="text-[#00ff41] font-bold">$MONITORZ</span> tokens daily.</p>
+                
+                <p class="text-white font-bold border-l-4 border-[#00ff41] pl-4 bg-[#00ff41]/10 py-2 pr-2">No empty promises. No delayed reveals. Just pure neon energy, digital art, and instant on-chain utility.</p>
+                
+                <p class="text-center text-[#00ff41] animate-pulse mt-8">> The minds are watching. Are you plugged in? <</p>
+            </div>
+        </div>
+    </section>
+    <!-- ========================================= -->
+
+    <!-- ========================================= -->
+    <!-- NFT STAKING PROTOCOL SECTION -->
+    <!-- ========================================= -->
+    <section id="staking" class="py-24 px-6 relative z-10 bg-black/90 backdrop-blur-md border-t border-[#00ff41]/20">
+        <div class="max-w-4xl mx-auto">
+            <h2 class="text-4xl md:text-5xl font-bold font-retro text-white mb-12 text-center glitch-text" data-text="NFT STAKING PROTOCOL">NFT STAKING PROTOCOL</h2>
+
+            <div class="terminal-box p-6 md:p-10 relative bg-[#050505]/95">
+                
+                <!-- Staking Stats -->
+                <div class="grid grid-cols-2 gap-4 border-b border-[#00ff41]/30 pb-6 mb-8 font-retro text-lg md:text-xl">
+                    <div class="text-gray-400 space-y-3">
+                        <p>> GLOBAL STAKED:</p>
+                        <p>> UNSTAKED IN WALLET:</p>
+                        <p>> YOUR STAKED NFTs:</p>
+                    </div>
+                    <div class="text-[#00ff41] text-right space-y-3 tracking-widest drop-shadow-[0_0_5px_rgba(0,255,65,0.5)]">
+                        <p id="global-staked-stat">LOADING...</p>
+                        <p id="wallet-nft-stat">0 MONITORZ</p>
+                        <p id="user-staked-stat">0 MONITORZ</p>
+                    </div>
+                </div>
+
+                <!-- Staking Input (ID NFT) -->
+                <div class="mb-8">
+                    <label class="block text-gray-400 font-retro text-lg mb-3">> ENTER MONITORZ ID TO STAKE/UNSTAKE:</label>
+                    <div class="flex flex-col md:flex-row gap-4">
+                        <div class="relative w-full">
+                            <input type="number" id="nft-id-input" class="w-full bg-black/50 border border-[#00ff41]/50 text-[#00ff41] p-4 font-retro text-xl focus:outline-none focus:border-[#00ff41] focus:shadow-[0_0_10px_rgba(0,255,65,0.5)] transition placeholder-[#00ff41]/30" placeholder="e.g., 777">
+                            <span class="absolute right-4 top-4 text-gray-500 font-retro text-lg">ID #</span>
+                        </div>
+                        <button id="stake-nft-btn" class="neon-btn-solid px-6 py-4 font-retro text-xl whitespace-nowrap w-full md:w-auto">
+                            STAKE NFT
+                        </button>
+                        <button id="unstake-nft-btn" class="neon-btn px-6 py-4 font-retro text-xl whitespace-nowrap w-full md:w-auto bg-black/50">
+                            UNSTAKE
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Rewards Monitor -->
+                <div class="bg-black/60 border border-[#00ff41]/30 p-8 mb-8 text-center cyber-corners relative">
+                    <p class="text-gray-400 font-retro text-lg mb-2">> PENDING REWARDS <</p>
+                    <p class="text-4xl md:text-5xl font-bold text-[#00ff41] font-retro tracking-widest drop-shadow-[0_0_15px_rgba(0,255,65,0.8)]">
+                        <span id="user-rewards-stat">0.00000</span> <span class="text-2xl">$MONITORZ</span>
+                    </p>
+                </div>
+
+                <!-- Action Button: Claim -->
+                <div class="flex justify-center">
+                    <button id="claim-rewards-btn" class="w-full max-w-md border-2 border-white bg-black/50 text-white hover:bg-white hover:text-black hover:shadow-[0_0_15px_rgba(255,255,255,0.8)] transition-all py-4 font-retro text-2xl flex flex-col items-center justify-center font-bold">
+                        <span>CLAIM $MONITORZ TOKENS</span>
+                    </button>
+                </div>
+
+            </div>
+            
+            <p class="text-center font-retro text-gray-300 bg-black/50 inline-block px-4 py-2 rounded-md mt-6 tracking-widest text-lg md:text-xl shadow-lg border border-gray-800 w-full">
+                Lock your <span class="text-white">MONITORZ NFTs</span> in the Robin Hood Chain vault to yield <span class="text-[#00ff41]">$MONITORZ</span> tokens daily.
+            </p>
+        </div>
+    </section>
+    <!-- ========================================= -->
+
+    <!-- Roadmap Section -->
+    <section id="roadmap" class="py-24 px-6 relative z-10 bg-black/80 backdrop-blur-sm border-y border-[#00ff41]/20">
+        <div class="max-w-4xl mx-auto">
+            <h2 class="text-4xl md:text-5xl font-bold font-retro text-white mb-16 text-center glitch-text" data-text="SYSTEM ROADMAP">SYSTEM ROADMAP</h2>
+            
+            <div class="roadmap-container bg-black/60 p-6 rounded border border-gray-900">
+                
+                <div class="roadmap-item">
+                    <h3 class="text-2xl font-bold text-white mb-2 font-retro tracking-wider drop-shadow-md">PHASE 1: THE AWAKENING</h3>
+                    <p class="text-gray-300 leading-relaxed mb-4">Public Minting on OpenSea. All 7,777 MONITORZ entities are released into the Robin Hood Chain. Secondary market listings and rarity tools integration.</p>
+                    <span class="inline-block px-3 py-1 bg-[#00ff41]/20 text-[#00ff41] border border-[#00ff41]/50 text-sm font-retro">STATUS: IN PROGRESS</span>
+                </div>
+
+                <div class="roadmap-item">
+                    <h3 class="text-2xl font-bold text-white mb-2 font-retro tracking-wider drop-shadow-md">PHASE 2: NETWORK EXPANSION</h3>
+                    <p class="text-gray-300 leading-relaxed mb-4">Launch of exclusive holder utilities. Staking mechanisms for passive data generation (tokenomics) and community-voted airdrops for the most active entities.</p>
+                    <!-- Status diubah menjadi LOCKED karena masih proses minting -->
+                    <span class="inline-block px-3 py-1 bg-gray-800 text-gray-400 border border-gray-600 text-sm font-retro">STATUS: LOCKED</span>
+                </div>
+                
+                <div class="roadmap-item">
+                    <h3 class="text-2xl font-bold text-white mb-2 font-retro tracking-wider drop-shadow-md">PHASE 3: METAVERSE INTEGRATION</h3>
+                    <p class="text-gray-300 leading-relaxed">MONITORZ enter fully rendered 3D environments. Collaborations with other cyber-native projects and launch of exclusive merch store for verified holders.</p>
+                    <span class="inline-block px-3 py-1 bg-gray-800 text-gray-400 border border-gray-600 text-sm font-retro mt-4">STATUS: LOCKED</span>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Creator Section -->
+    <section id="creator" class="py-24 px-6 relative z-10 bg-[#050505]/90 backdrop-blur-md">
+        <div class="max-w-5xl mx-auto">
+            <div class="terminal-box p-8 md:p-12">
+                <div class="flex flex-col md:flex-row items-center gap-10">
+                    <div class="w-48 h-48 md:w-56 md:h-56 shrink-0 relative cyber-corners border border-[#00ff41] p-2 bg-black group overflow-hidden">
+                        <img src="images/MONITORZ_1.png" alt="MONITORZ" class="w-full h-full object-cover filter grayscale group-hover:grayscale-0 transition duration-700 transform group-hover:scale-110">
+                        <div class="absolute bottom-2 right-2 bg-black/80 px-2 text-[#00ff41] font-retro text-xs border border-[#00ff41]">ADMIN</div>
+                    </div>
+                    
+                    <div class="text-center md:text-left">
+                        <h2 class="text-3xl md:text-4xl font-bold font-retro text-white mb-2 tracking-widest glitch-text drop-shadow-md" data-text="THE ARCHITECT">THE ARCHITECT</h2>
+                        <h3 class="text-xl text-[#00ff41] font-retro tracking-widest mb-6 border-b border-[#00ff41]/30 pb-2 inline-block drop-shadow-md">> IDENT: MONITORZ</h3>
+                        
+                        <p class="text-gray-300 leading-relaxed mb-4 text-lg">
+                            The entire <span class="text-white font-bold">MONITORZ</span> ecosystem, from the responsive front-end architecture to the pixel-perfect 2D character designs, was forged by <span class="text-[#00ff41] font-bold">MONITORZ</span>.
+                        </p>
+                        <p class="text-gray-400 leading-relaxed text-lg">
+                            Operating as a dual-threat Web Developer and 2D Artist, MONITORZ brought these digital entities to life on the Robin Hood Chain, blending retro aesthetics with modern smart contract utility.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section id="faq" class="py-24 px-6 relative z-10 border-t border-[#00ff41]/20 bg-black/80 backdrop-blur-sm">
+        <div class="max-w-3xl mx-auto">
+            <h2 class="text-3xl md:text-4xl font-bold text-white mb-10 text-left font-sans tracking-tight drop-shadow-md">MONITORZ – Frequently Asked Questions</h2>
+            
+            <div class="space-y-4">
+                <div class="faq-item">
+                    <button class="faq-btn bg-black/40">What is MONITORZ?<svg class="faq-icon w-5 h-5 text-[#00ff41]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></button>
+                    <div class="faq-content bg-black/60"><div class="faq-text">MONITORZ is a collection of unique digital monitor characters, each with its own personality, style, expression, and identity. Welcome to a digital world where every screen has a story.</div></div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-btn bg-black/40">How many MONITORZ exist?<svg class="faq-icon w-5 h-5 text-[#00ff41]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></button>
+                    <div class="faq-content bg-black/60"><div class="faq-text">The MONITORZ collection consists of 7,777 unique NFTs, each designed with different traits, styles, accessories, and personalities.</div></div>
+                </div>
+                <div class="faq-item">
+                    <button class="faq-btn bg-black/40">Where can I collect MONITORZ?<svg class="faq-icon w-5 h-5 text-[#00ff41]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></button>
+                    <div class="faq-content bg-black/60"><div class="faq-text">MONITORZ is built for collectors on OpenSea. Follow the official MONITORZ channels for collection updates, announcements, and future releases.</div></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-[#00ff41]/20 py-16 mt-auto text-center bg-black/95 relative z-10 flex flex-col items-center justify-center backdrop-blur-md">
+        
+        <!-- Smart Contract Display -->
+        <div class="mb-12 flex flex-col items-center">
+            <p class="font-retro text-gray-400 mb-3 tracking-widest text-xl">> OFFICIAL SMART CONTRACT <</p>
+            <div class="flex items-center gap-3 bg-[#0a0a0a] border border-[#00ff41]/50 px-6 py-3 rounded cyber-corners group hover:border-[#00ff41] transition">
+                <span id="contract-address" class="font-retro text-[#00ff41] text-lg tracking-wider drop-shadow-md">0xb35a...d313</span>
+                <button onclick="copyContract()" class="text-gray-500 hover:text-white transition focus:outline-none" title="Copy Address">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                </button>
+            </div>
+            <p id="copy-toast" class="text-[#00ff41] font-retro text-sm mt-2 opacity-0 transition-opacity">COPIED TO CLIPBOARD!</p>
+        </div>
+
+        <p class="font-retro text-3xl text-white mb-2 tracking-widest glitch-text drop-shadow-md" data-text="WELCOME TO MONITORZ">
+            WELCOME TO MONITORZ
+        </p>
+        
+        <p class="font-retro text-lg text-[#00ff41] opacity-70 mb-8 bg-black/50 px-3 py-1 rounded">
+            7,777 FULLY ON-CHAIN MONITORZ · ROBIN HOOD CHAIN.
+        </p>
+
+        <!-- Social Icons in Footer -->
+        <div class="flex items-center space-x-6 mb-8">
+            <a href="https://x.com/MonitorzRh" target="_blank" rel="noopener noreferrer" class="transition transform hover:scale-125">
+                <svg class="w-8 h-8 fill-white drop-shadow-md" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/></svg>
+            </a>
+            <a href="https://opensea.io/collection/monitorz/overview" target="_blank" rel="noopener noreferrer" class="transition transform hover:scale-125">
+                <img src="images/opensea_logo.png" alt="OpenSea" class="w-8 h-8 object-contain rounded-full shadow-lg">
+            </a>
+        </div>
+
+        <div class="border-t border-[#00ff41]/10 w-1/2 pt-6">
+            <p class="font-retro text-sm text-gray-600 tracking-widest">
+                &copy; 2026 MONITORZ. ALL RIGHTS RESERVED.
+            </p>
+        </div>
+    </footer>
+
+    <!-- Interactive Scripts & Ethers.js Implementation -->
+    <script>
+        // ========================================== //
+        // 1. MATRIX BACKGROUND EFFECT (HANYA MONITORZ)
+        // ========================================== //
+        const canvas = document.getElementById('matrix-canvas');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Menggunakan huruf pembentuk MONITORZ saja
+        const alphabet = 'MONITORZ';
+
+        const fontSize = 16;
+        let columns = canvas.width / fontSize;
+        let rainDrops = [];
+
+        for (let x = 0; x < columns; x++) {
+            rainDrops[x] = 1;
+        }
+
+        const drawMatrix = () => {
+            // Memberikan efek jejak bayangan hitam transparan agar tulisan sebelumnya pudar
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Warna hijau neon khas terminal/matrix
+            ctx.fillStyle = '#00ff41';
+            ctx.font = fontSize + 'px monospace';
+
+            for (let i = 0; i < rainDrops.length; i++) {
+                // Ambil karakter acak dari kata MONITORZ
+                const text = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+                
+                // Gambar karakter
+                ctx.fillText(text, i * fontSize, rainDrops[i] * fontSize);
+
+                // Reset drop ke atas secara acak setelah mencapai bawah layar
+                if (rainDrops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                    rainDrops[i] = 0;
+                }
+                rainDrops[i]++;
+            }
+        };
+
+        // Render efek Matrix setiap 33 milidetik
+        setInterval(drawMatrix, 33);
+
+        // Responsive handling kalau layar diperbesar/diperkecil
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            columns = canvas.width / fontSize;
+            rainDrops = [];
+            for (let x = 0; x < columns; x++) {
+                rainDrops[x] = 1;
+            }
+        });
+
+        // ========================================== //
+        // 2. Mobile Menu Logic
+        // ========================================== //
+        const mobileBtn = document.getElementById('mobileMenuBtn');
+        const mobileMenu = document.getElementById('mobileMenu');
+        const mobileLinks = document.querySelectorAll('.mobile-link');
+
+        mobileBtn.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+            mobileMenu.classList.toggle('flex');
+        });
+
+        mobileLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                mobileMenu.classList.add('hidden');
+                mobileMenu.classList.remove('flex');
+            });
+        });
+
+        // ========================================== //
+        // 3. Connect Wallet Logic (SOON)
+        // ========================================== //
+        let isConnected = false; 
+        const connectBtns = document.querySelectorAll('.connectWalletBtn');
+        connectBtns.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const originalText = 'Connect Wallet';
+                this.innerText = 'SOON...';
+                this.classList.add('bg-[#00ff41]', 'text-[#0a0a0a]', 'font-bold');
+                
+                setTimeout(() => {
+                    this.innerText = originalText;
+                    this.classList.remove('bg-[#00ff41]', 'text-[#0a0a0a]', 'font-bold');
+                }, 2000);
+            });
+        });
+
+        // ========================================== //
+        // 4. Smart Contract Copy Logic
+        // ========================================== //
+        function copyContract() {
+            const contractAddr = "0xb35ac3b49109daff1613fb7deeea998d6b81d313"; 
+            navigator.clipboard.writeText(contractAddr);
+            
+            const toast = document.getElementById('copy-toast');
+            toast.style.opacity = '1';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+            }, 2000);
+        }
+
+        // ========================================== //
+        // 5. FAQ Logic
+        // ========================================== //
+        const accordions = document.querySelectorAll('.faq-btn');
+        accordions.forEach(acc => {
+            acc.addEventListener('click', function() {
+                this.classList.toggle('active');
+                const panel = this.nextElementSibling;
+                if (panel.style.maxHeight) {
+                    panel.style.maxHeight = null;
+                } else {
+                    panel.style.maxHeight = panel.scrollHeight + "px";
+                }
+            });
+        });
+
+        // ========================================== //
+        // 6. Slideshow Logic
+        // ========================================== //
+        const monitorzImages = [
+            "images/MONITORZ_1.png", "images/MONITORZ_2.png", "images/MONITORZ_3.png", 
+            "images/MONITORZ_4.png", "images/MONITORZ_5.png", "images/MONITORZ_6.png"
+        ];
+        let currentImgIndex = 0;
+        const previewImg = document.getElementById('nft-preview-img');
+        const idText = document.getElementById('mntrz-id-text');
+
+        setInterval(() => {
+            previewImg.style.opacity = '0';
+            setTimeout(() => {
+                currentImgIndex = (currentImgIndex + 1) % monitorzImages.length;
+                previewImg.src = monitorzImages[currentImgIndex];
+                
+                const displayId = (currentImgIndex + 1).toString().padStart(2, '0');
+                idText.innerText = `ID: MNTRZ-${displayId} // STATUS: LIVE`;
+                
+                previewImg.style.opacity = '0.8'; 
+            }, 500); 
+        }, 3500); 
+
+        // ========================================== //
+        // 7. Typewriter Effect
+        // ========================================== //
+        const terminalTexts = [
+            "> 7,777 MONITORZ is a collection of digital beings born from the world of retro monitors, cyberpunk culture, neon energy, and digital chaos.<br><br>",
+            "> Every MONITORZ has its own unique personality, expression, style, and story.<br><br>",
+            "> They were built to display information.<br><br>",
+            "> <span class='text-white font-bold'>But somewhere along the way... they became alive.</span>"
+        ];
+        
+        const typeTarget = document.getElementById('typewriter');
+        let textIndex = 0;
+        let charIndex = 0;
+        let isTag = false;
+        let currentHTML = "";
+
+        function typeWriter() {
+            if (textIndex < terminalTexts.length) {
+                let currentStr = terminalTexts[textIndex];
+                if (currentStr.charAt(charIndex) === '<') isTag = true;
+                if (currentStr.charAt(charIndex) === '>') isTag = false;
+                
+                currentHTML += currentStr.charAt(charIndex);
+                typeTarget.innerHTML = currentHTML + "<span class='cursor'></span>";
+                
+                charIndex++;
+                if (charIndex < currentStr.length) {
+                    setTimeout(typeWriter, isTag ? 0 : 30);
+                } else {
+                    charIndex = 0;
+                    textIndex++;
+                    setTimeout(typeWriter, 500);
+                }
+            } else {
+                typeTarget.innerHTML = currentHTML + "<span class='cursor'></span>";
+            }
+        }
+        setTimeout(typeWriter, 1000);
+
+        // ========================================== //
+        // 8. LIVE MINT DATA DARI BLOCKCHAIN
+        // ========================================== //
+        const nftContractAddress = "0xb35ac3b49109daff1613fb7deeea998d6b81d313"; 
+        const rpcUrl = "https://rpc.mainnet.chain.robinhood.com/"; 
+        const contractABI = ["function totalSupply() view returns (uint256)"];
+
+        async function updateLiveMintCount() {
+            try {
+                const provider = new ethers.providers.JsonRpcProvider(rpcUrl);
+                const contract = new ethers.Contract(nftContractAddress, contractABI, provider);
+                const totalMinted = await contract.totalSupply();
+                
+                const formattedNumber = totalMinted.toNumber().toLocaleString('en-US');
+                document.getElementById('live-mint-count').innerText = formattedNumber;
+                
+                const globalStaked = Math.floor(totalMinted.toNumber() * 0.2);
+                document.getElementById('global-staked-stat').innerText = `${globalStaked.toLocaleString('en-US')} / ${formattedNumber}`;
+
+            } catch (error) {
+                console.error("Gagal mengambil data blockchain:", error);
+                document.getElementById('live-mint-count').innerText = "...";
+                document.getElementById('global-staked-stat').innerText = "SYSTEM OFFLINE";
+            }
+        }
+        updateLiveMintCount();
+        setInterval(updateLiveMintCount, 15000); 
+
+        // ========================================== //
+        // 9. SIMULASI LOGIKA NFT STAKING (VISUAL ONLY)
+        // ========================================== //
+        let userNftWallet = 3; 
+        let userNftStaked = 0; 
+        let currentReward = 0.00000;
+
+        document.getElementById('stake-nft-btn').addEventListener('click', function() {
+            if(!isConnected) return alert('SYS_ERR: Please connect your wallet first.');
+            
+            const nftId = document.getElementById('nft-id-input').value;
+            if(!nftId || nftId <= 0) return alert('SYS_ERR: Please enter a valid MONITORZ ID.');
+            if(userNftWallet <= 0) return alert('SYS_ERR: You do not have any unstaked NFTs in your wallet.');
+            
+            const originalText = this.innerText;
+            this.innerText = 'STAKING...';
+            this.classList.add('animate-pulse');
+            
+            setTimeout(() => {
+                this.innerText = originalText;
+                this.classList.remove('animate-pulse');
+                
+                userNftWallet -= 1;
+                userNftStaked += 1;
+                
+                document.getElementById('wallet-nft-stat').innerText = `${userNftWallet} MONITORZ`;
+                document.getElementById('user-staked-stat').innerText = `${userNftStaked} MONITORZ`;
+                document.getElementById('nft-id-input').value = '';
+                alert(`SUCCESS: MONITORZ #${nftId} Staked to Protocol.`);
+            }, 1500);
+        });
+
+        document.getElementById('unstake-nft-btn').addEventListener('click', function() {
+            if(!isConnected) return alert('SYS_ERR: Please connect your wallet first.');
+            
+            const nftId = document.getElementById('nft-id-input').value;
+            if(!nftId || nftId <= 0) return alert('SYS_ERR: Please enter a valid MONITORZ ID.');
+            if(userNftStaked <= 0) return alert('SYS_ERR: You do not have any NFTs currently staked.');
+            
+            const originalText = this.innerText;
+            this.innerText = 'UNSTAKING...';
+            this.classList.add('animate-pulse');
+            
+            setTimeout(() => {
+                this.innerText = originalText;
+                this.classList.remove('animate-pulse');
+                
+                userNftStaked -= 1;
+                userNftWallet += 1;
+                
+                document.getElementById('wallet-nft-stat').innerText = `${userNftWallet} MONITORZ`;
+                document.getElementById('user-staked-stat').innerText = `${userNftStaked} MONITORZ`;
+                document.getElementById('nft-id-input').value = '';
+                alert(`SUCCESS: MONITORZ #${nftId} returned to wallet.`);
+            }, 1500);
+        });
+
+        // Simulasi hadiah ($MONITORZ token)
+        setInterval(() => {
+            if(userNftStaked > 0) {
+                currentReward += (userNftStaked * 0.0001);
+                document.getElementById('user-rewards-stat').innerText = currentReward.toFixed(5);
+            }
+        }, 1000);
+
+        document.getElementById('claim-rewards-btn').addEventListener('click', function() {
+            if(currentReward > 0) {
+                alert(`SUCCESS: Claimed ${currentReward.toFixed(5)} $MONITORZ tokens to wallet.`);
+                currentReward = 0;
+                document.getElementById('user-rewards-stat').innerText = '0.00000';
+            } else {
+                alert('SYS_ERR: No rewards to claim.');
+            }
+        });
+
+    </script>
+</body>
+</html>
